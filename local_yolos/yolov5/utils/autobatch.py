@@ -8,8 +8,8 @@ from copy import deepcopy
 import numpy as np
 import torch
 
-from local_yolos.yolov5.utils.general import LOGGER, colorstr, emojis
-from local_yolos.yolov5.utils.torch_utils import profile
+from PhantomSponges.local_yolos.yolov5.utils.general import LOGGER, colorstr, emojis
+from PhantomSponges.local_yolos.yolov5.utils.torch_utils import profile
 
 
 def check_train_batch_size(model, imgsz=640, amp=True):

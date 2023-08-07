@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-from local_yolos.yolov4.utils.general import *
+from PhantomSponges.local_yolos.yolov4.utils.general import *
 
 import torch
 from torch import nn

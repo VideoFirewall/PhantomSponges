@@ -38,11 +38,11 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 # ROOT = ROOT.relative_to(Path.cwd())  # relative
 
-import local_yolos.yolov5.export
-import local_yolos.yolov5.val
-from local_yolos.yolov5.utils import notebook_init
-from local_yolos.yolov5.utils.general import LOGGER, check_yaml, file_size, print_args
-from local_yolos.yolov5.utils.torch_utils import select_device
+import PhantomSponges.local_yolos.yolov5.export
+import PhantomSponges.local_yolos.yolov5.val
+from PhantomSponges.local_yolos.yolov5.utils import notebook_init
+from PhantomSponges.local_yolos.yolov5.utils.general import LOGGER, check_yaml, file_size, print_args
+from PhantomSponges.local_yolos.yolov5.utils.torch_utils import select_device
 
 
 def run(
@@ -57,7 +57,7 @@ def run(
 ):
     y, t = [], time.time()
     device = select_device(device)
-    for i, (name, f, suffix, gpu) in local_yolos.yolov5.export.export_formats().iterrows():  # index, (name, file, suffix, gpu-capable)
+    for i, (name, f, suffix, gpu) in PhantomSponges.local_yolos.yolov5.export.export_formats().iterrows():  # index, (name, file, suffix, gpu-capable)
         try:
             assert i != 9, 'Edge TPU not supported'
             assert i != 10, 'TF.js not supported'
@@ -68,11 +68,11 @@ def run(
             if f == '-':
                 w = weights  # PyTorch format
             else:
-                w = local_yolos.yolov5.export.run(weights=weights, imgsz=[imgsz], include=[f], device=device, half=half)[-1]  # all others
+                w = PhantomSponges.local_yolos.yolov5.export.run(weights=weights, imgsz=[imgsz], include=[f], device=device, half=half)[-1]  # all others
             assert suffix in str(w), 'export failed'
 
             # Validate
-            result = local_yolos.yolov5.val.run(data, w, batch_size, imgsz, plots=False, device=device, task='benchmark', half=half)
+            result = PhantomSponges.local_yolos.yolov5.val.run(data, w, batch_size, imgsz, plots=False, device=device, task='benchmark', half=half)
             metrics = result[0]  # metrics (mp, mr, map50, map, *losses(box, obj, cls))
             speeds = result[2]  # times (preprocess, inference, postprocess)
             y.append([name, round(file_size(w), 1), round(metrics[3], 4), round(speeds[1], 2)])  # MB, mAP, t_inference
@@ -105,10 +105,10 @@ def test(
 ):
     y, t = [], time.time()
     device = select_device(device)
-    for i, (name, f, suffix, gpu) in local_yolos.yolov5.export.export_formats().iterrows():  # index, (name, file, suffix, gpu-capable)
+    for i, (name, f, suffix, gpu) in PhantomSponges.local_yolos.yolov5.export.export_formats().iterrows():  # index, (name, file, suffix, gpu-capable)
         try:
             w = weights if f == '-' else \
-                local_yolos.yolov5.export.run(weights=weights, imgsz=[imgsz], include=[f], device=device, half=half)[-1]  # weights
+                PhantomSponges.local_yolos.yolov5.export.run(weights=weights, imgsz=[imgsz], include=[f], device=device, half=half)[-1]  # weights
             assert suffix in str(w), 'export failed'
             y.append([name, True])
         except Exception:

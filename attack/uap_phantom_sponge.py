@@ -8,8 +8,8 @@ import torchvision
 from torchvision import transforms
 import torch.nn as nn
 
-from local_yolos.yolov5.utils.general import non_max_suppression, xyxy2xywh
-from attacks_tools.early_stopping_patch import EarlyStopping
+from PhantomSponges.local_yolos.yolov5.utils.general import non_max_suppression, xyxy2xywh
+from PhantomSponges. attacks_tools.early_stopping_patch import EarlyStopping
 
 transt = transforms.ToTensor()
 transp = transforms.ToPILImage()
@@ -18,16 +18,16 @@ def get_model(name):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     if name == 'yolov5':
         # taken from https://github.com/ultralytics/yolov5
-        from local_yolos.yolov5.models.experimental import attempt_load
+        from PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
         model = attempt_load('local_yolos/yolov5/weights/yolov5s.pt', device).eval()
     elif name == 'yolov4':
         # taken from https://github.com/WongKinYiu/PyTorch_YOLOv4
-        from local_yolos.yolov4.models.models import Darknet, load_darknet_weights
+        from PhantomSponges.local_yolos.yolov4.models.models import Darknet, load_darknet_weights
         model = Darknet('local_yolos/yolov4/cfg/yolov4.cfg', img_size=640).to(device).eval()
         load_darknet_weights(model, 'local_yolos/yolov4/weights/yolov4.weights')
     elif name == 'yolov3':
         # taken from https://github.com/ultralytics/yolov3
-        from local_yolos.yolov3 import hubconf
+        from PhantomSponges.local_yolos.yolov3 import hubconf
         model = hubconf.yolov3(pretrained=True, autoshape=False, device=device)
     return model
 

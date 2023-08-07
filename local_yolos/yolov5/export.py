@@ -64,8 +64,8 @@ if str(ROOT) not in sys.path:
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from local_yolos.yolov5.models.experimental import attempt_load
-from local_yolos.yolov5.models.yolo import Detect
+from PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
+from PhantomSponges.local_yolos.yolov5.models.yolo import Detect
 from utils.dataloaders import LoadImages
 from utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, check_version, colorstr,
                            file_size, print_args, url2file)
@@ -292,7 +292,7 @@ def export_saved_model(model,
         import tensorflow as tf
         from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2
 
-        from local_yolos.tf import TFDetect, TFModel
+        from PhantomSponges.local_yolos.tf import TFDetect, TFModel
 
         LOGGER.info(f'\n{prefix} starting export with tensorflow {tf.__version__}...')
         f = str(file).replace('.pt', '_saved_model')
@@ -362,7 +362,7 @@ def export_tflite(keras_model, im, file, int8, data, nms, agnostic_nms, prefix=c
         converter.target_spec.supported_types = [tf.float16]
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         if int8:
-            from local_yolos.tf import representative_dataset_gen
+            from PhantomSponges.local_yolos.tf import representative_dataset_gen
             dataset = LoadImages(check_dataset(data)['train'], img_size=imgsz, auto=False)  # representative data
             converter.representative_dataset = lambda: representative_dataset_gen(dataset, ncalib=100)
             converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]

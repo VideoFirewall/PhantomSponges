@@ -1,7 +1,7 @@
-from local_yolos.yolov4.utils.google_utils import *
-from local_yolos.yolov4.utils.layers import *
-from local_yolos.yolov4.utils.parse_config import *
-from local_yolos.yolov4.utils import torch_utils
+from PhantomSponges.local_yolos.yolov4.utils.google_utils import *
+from PhantomSponges.local_yolos.yolov4.utils.layers import *
+from PhantomSponges.local_yolos.yolov4.utils.parse_config import *
+from PhantomSponges.local_yolos.yolov4.utils import torch_utils
 
 ONNX_EXPORT = False
 

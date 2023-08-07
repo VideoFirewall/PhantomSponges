@@ -28,11 +28,11 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
     """
     from pathlib import Path
 
-    from local_yolos.yolov5.models.common import AutoShape, DetectMultiBackend
-    from local_yolos.yolov5.models.yolo import Model
-    from local_yolos.yolov5.utils.downloads import attempt_download
-    from local_yolos.yolov5.utils.general import LOGGER, check_requirements, intersect_dicts, logging
-    from local_yolos.yolov5.utils.torch_utils import select_device
+    from PhantomSponges.local_yolos.yolov5.models.common import AutoShape, DetectMultiBackend
+    from PhantomSponges.local_yolos.yolov5.models.yolo import Model
+    from PhantomSponges.local_yolos.yolov5.utils.downloads import attempt_download
+    from PhantomSponges.local_yolos.yolov5.utils.general import LOGGER, check_requirements, intersect_dicts, logging
+    from PhantomSponges.local_yolos.yolov5.utils.torch_utils import select_device
 
     if not verbose:
         LOGGER.setLevel(logging.WARNING)
@@ -45,7 +45,7 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
 
         if pretrained and channels == 3 and classes == 80:
             model = DetectMultiBackend(path, device=device)  # download/load FP32 model
-            # model = local_yolos.experimental.attempt_load(path, map_location=device)  # download/load FP32 model
+            # model = PhantomSponges.local_yolos.experimental.attempt_load(path, map_location=device)  # download/load FP32 model
         else:
             cfg = list((Path(__file__).parent / 'local_yolos').rglob(f'{path.stem}.yaml'))[0]  # model.yaml path
             model = Model(cfg, channels, classes)  # create model

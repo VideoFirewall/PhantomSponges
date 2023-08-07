@@ -27,10 +27,10 @@ import torch
 import torch.nn as nn
 from tensorflow import keras
 
-from local_yolos.common import (C3, SPP, SPPF, Bottleneck, BottleneckCSP, C3x, Concat, Conv, CrossConv, DWConv,
+from PhantomSponges.local_yolos.common import (C3, SPP, SPPF, Bottleneck, BottleneckCSP, C3x, Concat, Conv, CrossConv, DWConv,
                                 DWConvTranspose2d, Focus, autopad)
-from local_yolos.experimental import MixConv2d, attempt_load
-from local_yolos.yolo import Detect
+from PhantomSponges.local_yolos.experimental import MixConv2d, attempt_load
+from PhantomSponges.local_yolos.yolo import Detect
 from utils.activations import SiLU
 from utils.general import LOGGER, make_divisible, print_args
 

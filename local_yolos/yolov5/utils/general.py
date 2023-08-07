@@ -33,8 +33,8 @@ import torch
 import torchvision
 import yaml
 
-from local_yolos.yolov5.utils.downloads import gsutil_getsize
-from local_yolos.yolov5.utils.metrics import box_iou, fitness
+from PhantomSponges.local_yolos.yolov5.utils.downloads import gsutil_getsize
+from PhantomSponges.local_yolos.yolov5.utils.metrics import box_iou, fitness
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLOv5 root directory
@@ -509,7 +509,7 @@ def check_dataset(data, autodownload=True):
 
 def check_amp(model):
     # Check PyTorch Automatic Mixed Precision (AMP) functionality. Return True on correct operation
-    from local_yolos.yolov5.models.common import AutoShape, DetectMultiBackend
+    from PhantomSponges.local_yolos.yolov5.models.common import AutoShape, DetectMultiBackend
 
     def amp_allclose(model, im):
         # All close FP32 vs AMP results
@@ -925,7 +925,7 @@ def print_mutation(results, hyp, save_dir, bucket, prefix=colorstr('evolve: ')):
 
 def apply_classifier(x, model, img, im0):
     # Apply a second stage classifier to YOLO outputs
-    # Example model = torchvision.local_yolos.__dict__['efficientnet_b0'](pretrained=True).to(device).eval()
+    # Example model = torchvision.PhantomSponges.local_yolos.__dict__['efficientnet_b0'](pretrained=True).to(device).eval()
     im0 = [im0] if isinstance(im0, np.ndarray) else im0
     for i, d in enumerate(x):  # per image
         if d is not None and len(d):

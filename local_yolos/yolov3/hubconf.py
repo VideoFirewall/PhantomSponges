@@ -27,11 +27,11 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
     """
     from pathlib import Path
 
-    from local_yolos.yolov3.models.experimental import attempt_load
-    from local_yolos.yolov3.models.yolo import Model
-    from local_yolos.yolov3.utils.downloads import attempt_download
-    from local_yolos.yolov3.utils.general import check_requirements, intersect_dicts, set_logging
-    from local_yolos.yolov3.utils.torch_utils import select_device
+    from PhantomSponges.local_yolos.yolov3.models.experimental import attempt_load
+    from PhantomSponges.local_yolos.yolov3.models.yolo import Model
+    from PhantomSponges.local_yolos.yolov3.utils.downloads import attempt_download
+    from PhantomSponges.local_yolos.yolov3.utils.general import check_requirements, intersect_dicts, set_logging
+    from PhantomSponges.local_yolos.yolov3.utils.torch_utils import select_device
 
     file = Path(__file__).resolve()
     check_requirements(exclude=('tensorboard', 'thop', 'opencv-python'))

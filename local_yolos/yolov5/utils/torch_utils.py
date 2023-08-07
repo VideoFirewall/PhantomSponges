@@ -18,7 +18,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from local_yolos.yolov5.utils.general import LOGGER, file_date, git_describe
+from PhantomSponges.local_yolos.yolov5.utils.general import LOGGER, file_date, git_describe
 
 try:
     import thop  # for FLOPs computation
