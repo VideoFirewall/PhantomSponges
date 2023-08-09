@@ -18,7 +18,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from PhantomSponges.local_yolos.yolov3.utils.general import LOGGER
+from attack.PhantomSponges.local_yolos.yolov3.utils.general import LOGGER
 
 try:
     import thop  # for FLOPs computation

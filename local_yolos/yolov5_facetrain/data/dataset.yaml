@@ -1,0 +1,4 @@
+train: /persist/yolo_face/newDataset/images/train
+val: /persist/yolo_face/newDataset/images/val
+nc: 1
+names: ['Face']

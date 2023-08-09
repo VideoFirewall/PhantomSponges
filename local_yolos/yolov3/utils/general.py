@@ -29,8 +29,8 @@ import torch
 import torchvision
 import yaml
 
-from PhantomSponges.local_yolos.yolov3.utils.downloads import gsutil_getsize
-from PhantomSponges.local_yolos.yolov3.utils.metrics import box_iou, fitness
+from attack.PhantomSponges.local_yolos.yolov3.utils.downloads import gsutil_getsize
+from attack.PhantomSponges.local_yolos.yolov3.utils.metrics import box_iou, fitness
 
 # Settings
 torch.set_printoptions(linewidth=320, precision=5, profile='long')

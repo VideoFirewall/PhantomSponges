@@ -19,11 +19,11 @@ import torch.nn as nn
 from PIL import Image
 from torch.cuda import amp
 
-from PhantomSponges.local_yolos.yolov3.utils.datasets import exif_transpose, letterbox
-from PhantomSponges.local_yolos.yolov3.utils.general import (LOGGER, check_requirements, check_suffix, colorstr, increment_path, make_divisible,
+from attack.PhantomSponges.local_yolos.yolov3.utils.datasets import exif_transpose, letterbox
+from attack.PhantomSponges.local_yolos.yolov3.utils.general import (LOGGER, check_requirements, check_suffix, colorstr, increment_path, make_divisible,
                            non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh)
-from PhantomSponges.local_yolos.yolov3.utils.plots import Annotator, colors, save_one_box
-from PhantomSponges.local_yolos.yolov3.utils.torch_utils import time_sync
+from attack.PhantomSponges.local_yolos.yolov3.utils.plots import Annotator, colors, save_one_box
+from attack.PhantomSponges.local_yolos.yolov3.utils.torch_utils import time_sync
 
 
 def autopad(k, p=None):  # kernel, padding

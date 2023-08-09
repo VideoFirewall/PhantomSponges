@@ -38,8 +38,8 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import val  # for end-of-epoch mAP
-from PhantomSponges.local_yolos.experimental import attempt_load
-from PhantomSponges.local_yolos.yolo import Model
+from attack.PhantomSponges.local_yolos.experimental import attempt_load
+from attack.PhantomSponges.local_yolos.yolo import Model
 from utils.autoanchor import check_anchors
 from utils.autobatch import check_train_batch_size
 from utils.callbacks import Callbacks

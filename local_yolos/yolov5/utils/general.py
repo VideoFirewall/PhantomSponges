@@ -33,8 +33,8 @@ import torch
 import torchvision
 import yaml
 
-from PhantomSponges.local_yolos.yolov5.utils.downloads import gsutil_getsize
-from PhantomSponges.local_yolos.yolov5.utils.metrics import box_iou, fitness
+from attack.PhantomSponges.local_yolos.yolov5.utils.downloads import gsutil_getsize
+from attack.PhantomSponges.local_yolos.yolov5.utils.metrics import box_iou, fitness
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLOv5 root directory
@@ -509,7 +509,7 @@ def check_dataset(data, autodownload=True):
 
 def check_amp(model):
     # Check PyTorch Automatic Mixed Precision (AMP) functionality. Return True on correct operation
-    from PhantomSponges.local_yolos.yolov5.models.common import AutoShape, DetectMultiBackend
+    from attack.PhantomSponges.local_yolos.yolov5.models.common import AutoShape, DetectMultiBackend
 
     def amp_allclose(model, im):
         # All close FP32 vs AMP results

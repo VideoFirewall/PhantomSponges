@@ -25,10 +25,10 @@ from PIL import ExifTags, Image, ImageOps
 from torch.utils.data import DataLoader, Dataset, dataloader, distributed
 from tqdm import tqdm
 
-from PhantomSponges.local_yolos.yolov3.utils.augmentations import Albumentations, augment_hsv, copy_paste, letterbox, mixup, random_perspective
-from PhantomSponges.local_yolos.yolov3.utils.general import (LOGGER, check_dataset, check_requirements, check_yaml, clean_str, segments2boxes, xyn2xy,
+from attack.PhantomSponges.local_yolos.yolov3.utils.augmentations import Albumentations, augment_hsv, copy_paste, letterbox, mixup, random_perspective
+from attack.PhantomSponges.local_yolos.yolov3.utils.general import (LOGGER, check_dataset, check_requirements, check_yaml, clean_str, segments2boxes, xyn2xy,
                            xywh2xyxy, xywhn2xyxy, xyxy2xywhn)
-from PhantomSponges.local_yolos.yolov3.utils.torch_utils import torch_distributed_zero_first
+from attack.PhantomSponges.local_yolos.yolov3.utils.torch_utils import torch_distributed_zero_first
 
 # Parameters
 HELP_URL = 'https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data'

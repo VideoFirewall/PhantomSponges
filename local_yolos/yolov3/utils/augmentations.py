@@ -9,8 +9,8 @@ import random
 import cv2
 import numpy as np
 
-from PhantomSponges.local_yolos.yolov3.utils.general import LOGGER, check_version, colorstr, resample_segments, segment2box
-from PhantomSponges.local_yolos.yolov3.utils.metrics import bbox_ioa
+from attack.PhantomSponges.local_yolos.yolov3.utils.general import LOGGER, check_version, colorstr, resample_segments, segment2box
+from attack.PhantomSponges.local_yolos.yolov3.utils.metrics import bbox_ioa
 
 
 class Albumentations:

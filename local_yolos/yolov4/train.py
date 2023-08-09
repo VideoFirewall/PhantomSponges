@@ -21,7 +21,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import test  # import test.py to get mAP after each epoch
-#from PhantomSponges.local_yolos.yolo import Model
+#from attack.PhantomSponges.local_yolos.yolo import Model
 from models.models import *
 from utils.autoanchor import check_anchors
 from utils.datasets import create_dataloader

@@ -34,7 +34,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from PhantomSponges.local_yolos.common import DetectMultiBackend
+from attack.PhantomSponges.local_yolos.common import DetectMultiBackend
 from utils.callbacks import Callbacks
 from utils.dataloaders import create_dataloader
 from utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, check_yaml,

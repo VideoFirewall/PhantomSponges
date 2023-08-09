@@ -7,27 +7,37 @@ import numpy as np
 import torchvision
 from torchvision import transforms
 import torch.nn as nn
+from attack.BlazeFace.blazeface import BlazeFace
 
-from PhantomSponges.local_yolos.yolov5.utils.general import non_max_suppression, xyxy2xywh
-from PhantomSponges. attacks_tools.early_stopping_patch import EarlyStopping
+from attack.PhantomSponges.local_yolos.yolov5.utils.general import non_max_suppression, xyxy2xywh
+from attack.PhantomSponges.attacks_tools.early_stopping_patch import EarlyStopping
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.models.common import DetectMultiBackend
 
 transt = transforms.ToTensor()
 transp = transforms.ToPILImage()
 
 def get_model(name):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    if name == 'blazeface':
+        model = BlazeFace(back_model=True).to(device)
+        model.load_weights("../BlazeFace/blazefaceback.pth")
+        model.load_anchors("../BlazeFace/anchorsback.npy")
+        model.min_score_thresh = 0
+        model.min_suppression_threshold = 0
     if name == 'yolov5':
         # taken from https://github.com/ultralytics/yolov5
-        from PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
-        model = attempt_load('local_yolos/yolov5/weights/yolov5s.pt', device).eval()
+        #from attack.PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
+        data = "local_yolos/yolov5_facetrain/data/dataset.yaml"
+        model = DetectMultiBackend("local_yolos/yolov5_facetrain/runs/train/exp/weights/best.pt", device=device, data=data, fp16=False, dnn = False)
+        #model = attempt_load('local_yolos/yolov5/weights/yolov5s.pt', device).eval()
     elif name == 'yolov4':
         # taken from https://github.com/WongKinYiu/PyTorch_YOLOv4
-        from PhantomSponges.local_yolos.yolov4.models.models import Darknet, load_darknet_weights
+        from attack.PhantomSponges.local_yolos.yolov4.models.models import Darknet, load_darknet_weights
         model = Darknet('local_yolos/yolov4/cfg/yolov4.cfg', img_size=640).to(device).eval()
         load_darknet_weights(model, 'local_yolos/yolov4/weights/yolov4.weights')
     elif name == 'yolov3':
         # taken from https://github.com/ultralytics/yolov3
-        from PhantomSponges.local_yolos.yolov3 import hubconf
+        from attack.PhantomSponges.local_yolos.yolov3 import hubconf
         model = hubconf.yolov3(pretrained=True, autoshape=False, device=device)
     return model
 
@@ -145,6 +155,9 @@ class UAPPhantomSponge:
           self.models.append(get_model('yolov4'))
         if 5 in models_vers:
           self.models.append(get_model('yolov5'))
+        if 0 in models_vers:
+          self.models.append(get_model('blazeface'))
+            
 
         self.iter_eps = iter_eps
         self.penalty_regularizer = penalty_regularizer
@@ -271,11 +284,94 @@ class UAPPhantomSponge:
         print(f"total loss: {loss}")
         return loss, [max_objects_loss, min_bboxes_added_preds_loss, orig_classification_loss]
 
+    # Qian: this function is created to avoid changing original code
+    def evaluate_loss_own(self, loader, adv_patch):
+        val_loss = []
+        max_objects_loss = []
+        orig_classification_loss = []
+        min_bboxes_added_preds_loss = []
+
+        adv_patch = adv_patch.to(self.device)
+
+        for (img_batch, lab_batch) in loader:
+            #r = random.randint(0, len(self.models) - 1)
+
+            with torch.no_grad():
+                #print(img_batch.shape)
+                #print(adv_patch.shape)
+                #img_batch = torch.stack(img_batch)
+                img_batch = img_batch.to(self.device)
+                #print(img_batch.shape)
+                #print(adv_patch.shape)
+                #print(img_batch[:].shape)
+                applied_batch = img_batch[:] + adv_patch
+                applied_batch = torch.clamp(applied_batch, 0,1)
+                #print("line 254")
+                #applied_batch = torch.clamp(img_batch[:] + adv_patch, 0, 1)
+                
+                with torch.no_grad():
+                    output_clean = self.models.predict_on_batch(img_batch)
+                    #print(output_clean)
+                    #print(output_clean[0].shape)
+                    output_clean = torch.stack(output_clean, dim=0)
+                    #print(output_clean[:,:,-1])
+                    output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                    
+                    
+                    
+                    size_output = list(output_clean.shape[:-1])
+                    size_output.append(1)
+                    class_column = torch.ones(tuple(size_output)).to(self.device)
+                    output_clean = torch.cat((output_clean, class_column), axis=2)
+                    output_clean = output_clean.to(self.device)
+                    #print("output clean shape",output_clean.shape)
+                    #print("output clean shape 0", output_clean[0].shape)
+                    
+                    
+                    output_patch = self.models.predict_on_batch(applied_batch)
+                    output_patch = torch.stack(output_patch, dim=0)
+                    output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                    size_output = list(output_patch.shape[:-1])
+                    size_output.append(1)
+                    class_column = torch.ones(tuple(size_output)).to(self.device)
+                    output_patch = torch.cat((output_patch, class_column), axis=2)
+                    output_patch = output_patch.to(self.device) 
+                                                      
+
+                max_objects = self.max_objects(output_patch, target_class=0)
+
+                bboxes_area = self.bboxes_area(output_clean, output_patch)
+
+                iou = self.iou(output_clean, output_patch)
+
+                batch_loss = max_objects.item() * self.lambda_1
+
+                max_objects_loss.append(max_objects.item() * self.lambda_1)
+
+                if not torch.isnan(iou):
+                    batch_loss += (iou.item() * (1 - self.lambda_1))
+                    orig_classification_loss.append(iou.item() * (1 - self.lambda_1))
+
+                if not torch.isnan(bboxes_area):
+                    batch_loss += (bboxes_area * self.lambda_2)
+
+                val_loss.append(batch_loss)
+
+                del img_batch, lab_batch, applied_batch, output_patch, batch_loss
+                torch.cuda.empty_cache()
+
+        loss = sum(val_loss) / len(val_loss)
+        max_objects_loss = sum(max_objects_loss) / len(max_objects_loss)
+
+        orig_classification_loss = sum(orig_classification_loss) / len(orig_classification_loss)
+
+        print(f"total loss: {loss}")
+        return loss, [max_objects_loss, min_bboxes_added_preds_loss, orig_classification_loss]
+
     def compute_penalty_term(self, image, init_image):
         return 0
 
     def max_objects(self, output_patch, conf_thres=0.25, target_class=2):
-
         x2 = output_patch[:, :, 5:] * output_patch[:, :, 4:5]
 
         conf, j = x2.max(2, keepdim=False)
@@ -377,7 +473,60 @@ class UAPPhantomSponge:
         data_grad = torch.autograd.grad(loss, adv_patch)[0]
         return data_grad
 
-    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3):
+    # Qian: this function is created to avoid changing original code
+    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch):
+
+        if self.use_cuda:
+            init_images = init_images.cuda()
+            applied_patch = applied_patch.cuda()
+        # r = random.randint(0, len(self.models)-1) # choose a random model
+
+        with torch.no_grad():
+            output_clean = self.models.predict_on_batch(init_images)
+            output_clean = torch.stack(output_clean, dim=0).detach()
+            output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+            size_output = list(output_clean.shape[:-1])
+            size_output.append(1)
+            class_column = torch.ones(tuple(size_output)).to(self.device)
+            output_clean = torch.cat((output_clean, class_column), axis=2)
+            output_clean = output_clean.to(self.device)
+            
+                                                      
+        output_patch = self.models.predict_on_batch(applied_patch)
+        output_patch = torch.stack(output_patch, dim=0)
+        output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+        size_output = list(output_patch.shape[:-1])
+        size_output.append(1)
+        class_column = torch.ones(tuple(size_output)).to(self.device)
+        output_patch = torch.cat((output_patch, class_column), axis=2)
+        output_patch = output_patch.to(self.device)
+
+        max_objects_loss = self.max_objects(output_patch)
+        bboxes_area_loss = self.bboxes_area(output_clean, output_patch)
+        iou_loss = self.iou(output_clean, output_patch)
+
+        loss = max_objects_loss * self.lambda_1
+
+        if not torch.isnan(iou_loss):
+            loss += (iou_loss * (1 - self.lambda_1))
+            self.current_orig_classification_loss += ((1 - self.lambda_1) * iou_loss.item())
+
+        if not torch.isnan(bboxes_area_loss):
+            loss += (bboxes_area_loss * self.lambda_2)
+
+        self.current_train_loss += loss.item()
+        self.current_max_objects_loss += (self.lambda_1 * max_objects_loss.item())
+
+        if self.use_cuda:
+            loss = loss.cuda()
+
+        self.models.zero_grad()
+        #print("loss", loss)
+        data_grad = torch.autograd.grad(loss, adv_patch, allow_unused=True)[0]
+        #print("data_grad", data_grad)
+        return data_grad
+
+    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, use_own_dataset=False):
 
         # image_attack = image
         applied_patch = torch.clamp(images[:] + adv_patch, 0, 1)
@@ -385,8 +534,12 @@ class UAPPhantomSponge:
         penalty_term = self.compute_penalty_term(images, images)  # init_image)
 
         # torch.autograd.set_detect_anomaly(True)
-        data_grad = self.loss_function_gradient(applied_patch, images, labels, penalty_term,
-                                                adv_patch)  # init_image, penalty_term, adv_patch)
+        if use_own_dataset:
+            data_grad = self.loss_function_gradient_own(applied_patch, images, labels, penalty_term,
+                                                    adv_patch)  # init_image, penalty_term, adv_patch)
+        else:
+            data_grad = self.loss_function_gradient(applied_patch, images, labels, penalty_term,
+                                                    adv_patch)  # init_image, penalty_term, adv_patch)
 
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
@@ -397,8 +550,8 @@ class UAPPhantomSponge:
         # Return the perturbed image
         return perturbed_patch_c
 
-    def pgd_L2(self, epsilon=0.1, iter_eps=0.05, min_x=0.0, max_x=1.0):
-        early_stop = EarlyStopping(delta=1e-4, current_dir=self.current_dir, patience=7)
+    def pgd_L2(self, epsilon=0.1, iter_eps=0.05, min_x=0.0, max_x=1.0, use_own_dataset=False):
+        early_stop = EarlyStopping(delta=1e-8, current_dir=self.current_dir, patience=7)
 
         patch_size = self.patch_size
         patch = torch.zeros([3, patch_size[0], patch_size[1]])
@@ -409,7 +562,10 @@ class UAPPhantomSponge:
             epoch_length = len(self.train_loader)
             print('Epoch:', epoch)
             if epoch == 0:
-                val_loss = self.evaluate_loss(self.val_loader, adv_patch)[0]
+                if use_own_dataset:
+                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch)[0]
+                else:
+                    val_loss = self.evaluate_loss(self.val_loader, adv_patch)[0]
                 early_stop(val_loss, adv_patch.cpu(), epoch)
 
             # Perturb the input
@@ -417,29 +573,55 @@ class UAPPhantomSponge:
             self.current_max_objects_loss = 0.0
             self.current_orig_classification_loss = 0.0
 
-            i = 0
-            for (imgs, label, _) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
-                if i % 25 == 0:
-                    print(f"batch {i}:")
-                    patch_n = self.full_patch_folder + f"upatech_epoch_{epoch}_btach{i}_s_model.png"
-                    transp(adv_patch).save(patch_n)
+            if use_own_dataset:
+                i = 0
+                for (imgs, label) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
+                    if i % 25 == 0:
+                        print(f"batch {i}:")
+                        patch_n = self.full_patch_folder + f"upatech_epoch_{epoch}_btach{i}_s_model.png"
+                        transp(adv_patch).save(patch_n)
 
-                x = torch.stack(imgs)
+                    #x = torch.stack(imgs)
+                    x = imgs
 
-                adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps)
+                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps, use_own_dataset=use_own_dataset)
 
-                # Project the perturbation to the epsilon ball (L2 projection)
-                perturbation = adv_patch - patch
+                    # Project the perturbation to the epsilon ball (L2 projection)
+                    perturbation = adv_patch - patch
 
-                norm = torch.sum(torch.square(perturbation))
-                norm = torch.sqrt(norm)
-                factor = min(1, epsilon / norm.item())  # torch.divide(epsilon, norm.numpy()[0]))
+                    norm = torch.sum(torch.square(perturbation))
+                    norm = torch.sqrt(norm)
+                    factor = min(1, epsilon / norm.item())  # torch.divide(epsilon, norm.numpy()[0]))
 
-                adv_patch = (torch.clip(patch + perturbation * factor, min_x, max_x))  # .detach()
+                    adv_patch = (torch.clip(patch + perturbation * factor, min_x, max_x))  # .detach()
 
-                i += 1
-                if i == epoch_length:
-                    self.last_batch_calc(adv_patch, epoch_length, epoch, i)
+                    i += 1
+                    if i == epoch_length:
+                        self.last_batch_calc(adv_patch, epoch_length, epoch, i)
+            else:
+                i = 0
+                for (imgs, label, _) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
+                    if i % 25 == 0:
+                        print(f"batch {i}:")
+                        patch_n = self.full_patch_folder + f"upatech_epoch_{epoch}_btach{i}_s_model.png"
+                        transp(adv_patch).save(patch_n)
+
+                    x = torch.stack(imgs)
+
+                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps)
+
+                    # Project the perturbation to the epsilon ball (L2 projection)
+                    perturbation = adv_patch - patch
+
+                    norm = torch.sum(torch.square(perturbation))
+                    norm = torch.sqrt(norm)
+                    factor = min(1, epsilon / norm.item())  # torch.divide(epsilon, norm.numpy()[0]))
+
+                    adv_patch = (torch.clip(patch + perturbation * factor, min_x, max_x))  # .detach()
+
+                    i += 1
+                    if i == epoch_length:
+                        self.last_batch_calc(adv_patch, epoch_length, epoch, i)
 
             # check if loss has decreased
             if early_stop(self.val_losses[-1], adv_patch.cpu(), epoch):
@@ -449,8 +631,9 @@ class UAPPhantomSponge:
         print("Training finished")
         return early_stop.best_patch
 
-    def run_attack(self):
-        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005)  # 05
+    # Qian: use_own_dataset allows us to control whose dataset we are using
+    def run_attack(self, use_own_dataset=False):
+        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005, use_own_dataset=use_own_dataset)  # 05
 
         patch = tensor_adv_patch
 
