@@ -2,7 +2,7 @@ import argparse
 
 from wandb_utils import WandbLogger
 
-from utils.general import LOGGER
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.general import LOGGER
 
 WANDB_ARTIFACT_PREFIX = 'wandb-artifact://'
 

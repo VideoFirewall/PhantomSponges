@@ -41,11 +41,11 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 from models.common import Conv
 from models.experimental import attempt_load
 from models.yolo import Detect
-from utils.activations import SiLU
-from utils.datasets import LoadImages
-from utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, colorstr, file_size, print_args,
+from attack.PhantomSponges.local_yolos.yolov3.utils.activations import SiLU
+from attack.PhantomSponges.local_yolos.yolov3.utils.datasets import LoadImages
+from attack.PhantomSponges.local_yolos.yolov3.utils.general import (LOGGER, check_dataset, check_img_size, check_requirements, colorstr, file_size, print_args,
                            url2file)
-from utils.torch_utils import select_device
+from attack.PhantomSponges.local_yolos.yolov3.utils.torch_utils import select_device
 
 
 def export_torchscript(model, im, file, optimize, prefix=colorstr('TorchScript:')):

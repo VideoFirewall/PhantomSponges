@@ -22,7 +22,7 @@ def autobatch(model, imgsz=640, fraction=0.9, batch_size=16):
     # Automatically estimate best batch size to use `fraction` of available CUDA memory
     # Usage:
     #     import torch
-    #     from utils.autobatch import autobatch
+    #     from attack.PhantomSponges.local_yolos.yolov5.utils.autobatch import autobatch
     #     model = torch.hub.load('ultralytics/yolov5', 'yolov5s', autoshape=False)
     #     print(autobatch(model))
 

@@ -44,12 +44,12 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from models.common import DetectMultiBackend
-from utils.augmentations import classify_transforms
-from utils.dataloaders import IMG_FORMATS, VID_FORMATS, LoadImages, LoadScreenshots, LoadStreams
-from utils.general import (LOGGER, Profile, check_file, check_img_size, check_imshow, check_requirements, colorstr, cv2,
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.augmentations import classify_transforms
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.dataloaders import IMG_FORMATS, VID_FORMATS, LoadImages, LoadScreenshots, LoadStreams
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.general import (LOGGER, Profile, check_file, check_img_size, check_imshow, check_requirements, colorstr, cv2,
                            increment_path, print_args, strip_optimizer)
-from utils.plots import Annotator
-from utils.torch_utils import select_device, smart_inference_mode
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.plots import Annotator
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.torch_utils import select_device, smart_inference_mode
 
 
 @smart_inference_mode()

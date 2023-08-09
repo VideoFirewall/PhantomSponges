@@ -9,9 +9,9 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 
 from train import parse_opt, train
-from utils.callbacks import Callbacks
-from utils.general import increment_path
-from utils.torch_utils import select_device
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.callbacks import Callbacks
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.general import increment_path
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.torch_utils import select_device
 
 
 def sweep():

@@ -27,12 +27,12 @@ import torch
 import torch.nn as nn
 from tensorflow import keras
 
-from attack.PhantomSponges.local_yolos.common import (C3, SPP, SPPF, Bottleneck, BottleneckCSP, C3x, Concat, Conv, CrossConv, DWConv,
+from attack.PhantomSponges.local_yolos.yolov5.models.common import (C3, SPP, SPPF, Bottleneck, BottleneckCSP, C3x, Concat, Conv, CrossConv, DWConv,
                                 DWConvTranspose2d, Focus, autopad)
-from attack.PhantomSponges.local_yolos.experimental import MixConv2d, attempt_load
-from attack.PhantomSponges.local_yolos.yolo import Detect
-from utils.activations import SiLU
-from utils.general import LOGGER, make_divisible, print_args
+from attack.PhantomSponges.local_yolos.yolov5.models.experimental import MixConv2d, attempt_load
+from attack.PhantomSponges.local_yolos.yolov5.models.yolo import Detect
+from attack.PhantomSponges.local_yolos.yolov5.utils.activations import SiLU
+from attack.PhantomSponges.local_yolos.yolov5.utils.general import LOGGER, make_divisible, print_args
 
 
 class TFBN(keras.layers.Layer):

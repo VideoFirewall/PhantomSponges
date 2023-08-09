@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from utils.downloads import attempt_download
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.downloads import attempt_download
 
 
 class Sum(nn.Module):

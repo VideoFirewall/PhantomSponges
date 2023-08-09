@@ -80,7 +80,7 @@ def kmean_anchors(dataset='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen
             k: kmeans evolved anchors
 
         Usage:
-            from utils.autoanchor import *; _ = kmean_anchors()
+            from attack.PhantomSponges.local_yolos.yolov5.utils.autoanchor import *; _ = kmean_anchors()
     """
     from scipy.cluster.vq import kmeans
 

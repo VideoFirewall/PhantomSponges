@@ -54,8 +54,8 @@ def notebook_init(verbose=True):
     import os
     import shutil
 
-    from utils.general import check_font, check_requirements, is_colab
-    from utils.torch_utils import select_device  # imports
+    from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.general import check_font, check_requirements, is_colab
+    from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.torch_utils import select_device  # imports
 
     check_font()
 

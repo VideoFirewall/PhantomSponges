@@ -9,7 +9,7 @@
 #     └── ...
 
 python - <<EOF
-from utils.downloads import attempt_download
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.downloads import attempt_download
 
 p5 = list('nsmlx')  # P5 models
 p6 = [f'{x}6' for x in p5]  # P6 models

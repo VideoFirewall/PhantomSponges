@@ -38,23 +38,23 @@ if str(ROOT) not in sys.path:
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import val  # for end-of-epoch mAP
-from attack.PhantomSponges.local_yolos.experimental import attempt_load
-from attack.PhantomSponges.local_yolos.yolo import Model
-from utils.autoanchor import check_anchors
-from utils.autobatch import check_train_batch_size
-from utils.callbacks import Callbacks
-from utils.dataloaders import create_dataloader
-from utils.downloads import attempt_download
-from utils.general import (LOGGER, check_amp, check_dataset, check_file, check_git_status, check_img_size,
+from attack.PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
+from attack.PhantomSponges.local_yolos.yolov5.models.yolo import Model
+from attack.PhantomSponges.local_yolos.yolov5.utils.autoanchor import check_anchors
+from attack.PhantomSponges.local_yolos.yolov5.utils.autobatch import check_train_batch_size
+from attack.PhantomSponges.local_yolos.yolov5.utils.callbacks import Callbacks
+from attack.PhantomSponges.local_yolos.yolov5.utils.dataloaders import create_dataloader
+from attack.PhantomSponges.local_yolos.yolov5.utils.downloads import attempt_download
+from attack.PhantomSponges.local_yolos.yolov5.utils.general import (LOGGER, check_amp, check_dataset, check_file, check_git_status, check_img_size,
                            check_requirements, check_suffix, check_version, check_yaml, colorstr, get_latest_run,
                            increment_path, init_seeds, intersect_dicts, labels_to_class_weights,
                            labels_to_image_weights, methods, one_cycle, print_args, print_mutation, strip_optimizer)
-from utils.loggers import Loggers
-from utils.loggers.wandb.wandb_utils import check_wandb_resume
-from utils.loss import ComputeLoss
-from utils.metrics import fitness
-from utils.plots import plot_evolve, plot_labels
-from utils.torch_utils import EarlyStopping, ModelEMA, de_parallel, select_device, torch_distributed_zero_first
+from attack.PhantomSponges.local_yolos.yolov5.utils.loggers import Loggers
+from attack.PhantomSponges.local_yolos.yolov5.utils.loggers.wandb.wandb_utils import check_wandb_resume
+from attack.PhantomSponges.local_yolos.yolov5.utils.loss import ComputeLoss
+from attack.PhantomSponges.local_yolos.yolov5.utils.metrics import fitness
+from attack.PhantomSponges.local_yolos.yolov5.utils.plots import plot_evolve, plot_labels
+from attack.PhantomSponges.local_yolos.yolov5.utils.torch_utils import EarlyStopping, ModelEMA, de_parallel, select_device, torch_distributed_zero_first
 
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # https://pytorch.org/docs/stable/elastic/run.html
 RANK = int(os.getenv('RANK', -1))

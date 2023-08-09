@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from utils.plots import Annotator, colors
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.plots import Annotator, colors
 
 try:
     import clearml

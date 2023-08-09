@@ -9,7 +9,7 @@
 #     └── ...
 
 python - <<EOF
-from utils.downloads import attempt_download
+from attack.PhantomSponges.local_yolos.yolov5_facetrain.utils.downloads import attempt_download
 
 models = ['n', 's', 'm', 'l', 'x']
 models.extend([x + '6' for x in models])  # add P6 models
