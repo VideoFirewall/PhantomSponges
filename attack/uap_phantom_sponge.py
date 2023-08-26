@@ -28,7 +28,7 @@ def get_model(name):
         from attack.Retinaface.data import cfg_re50
         from attack.Retinaface.models.retinaface import RetinaFace 
         
-        model = RetinaFace(cfg=cfg_re50, phase = 'test')
+        model = RetinaFace(cfg=cfg_re50, phase = 'train')
         model.to(device)
         #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
         #model.to_device(device)
@@ -298,7 +298,7 @@ class UAPPhantomSponge:
         return loss, [max_objects_loss, min_bboxes_added_preds_loss, orig_classification_loss]
 
     # this function is created to avoid changing original code
-    def evaluate_loss_own(self, loader, adv_patch):
+    def evaluate_loss_own(self, loader, adv_patch, model_name):
         val_loss = []
         max_objects_loss = []
         orig_classification_loss = []
@@ -312,26 +312,31 @@ class UAPPhantomSponge:
                 applied_batch = img_batch[:] + adv_patch
                 applied_batch = torch.clamp(applied_batch, 0,1)
                 
-                with torch.no_grad():
-                    output_clean = self.models[0].predict_on_batch(img_batch)
-                    output_clean = torch.stack(output_clean, dim=0)
-                    output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
-                    
-                    size_output = list(output_clean.shape[:-1])
-                    size_output.append(1)
-                    class_column = torch.ones(tuple(size_output)).to(self.device)
-                    output_clean = torch.cat((output_clean, class_column), axis=2)
-                    output_clean = output_clean.to(self.device)
-                    
-                    output_patch = self.models[0].predict_on_batch(applied_batch)
-                    output_patch = torch.stack(output_patch, dim=0)
-                    output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
-                    size_output = list(output_patch.shape[:-1])
-                    size_output.append(1)
-                    class_column = torch.ones(tuple(size_output)).to(self.device)
-                    output_patch = torch.cat((output_patch, class_column), axis=2)
-                    output_patch = output_patch.to(self.device) 
-                                                      
+                if model_name == "retinaface":
+                    with torch.no_grad():
+                        output_bbox_clean, output_class_clean, _ = self.models[0](img_batch)
+                        output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).to(self.device)
+                        output_bbox_patch, output_class_patch, _ = self.models[0](applied_batch)
+                        output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2).to(self.device)
+                else:
+                    with torch.no_grad():
+                        output_clean = self.models[0].predict_on_batch(img_batch)
+                        output_clean = torch.stack(output_clean, dim=0)
+                        output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                        size_output = list(output_clean.shape[:-1])
+                        size_output.append(1)
+                        class_column = torch.ones(tuple(size_output)).to(self.device)
+                        output_clean = torch.cat((output_clean, class_column), axis=2)
+                        output_clean = output_clean.to(self.device)
+
+                        output_patch = self.models[0].predict_on_batch(applied_batch)
+                        output_patch = torch.stack(output_patch, dim=0)
+                        output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                        size_output = list(output_patch.shape[:-1])
+                        size_output.append(1)
+                        class_column = torch.ones(tuple(size_output)).to(self.device)
+                        output_patch = torch.cat((output_patch, class_column), axis=2)
+                        output_patch = output_patch.to(self.device)                                                      
 
                 max_objects = self.max_objects(output_patch, target_class=0)
 
@@ -469,40 +474,45 @@ class UAPPhantomSponge:
         return data_grad
 
     # this function is created to avoid changing original code
-    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch):
+    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch, model_name):
 
         if self.use_cuda:
             init_images = init_images.cuda()
             applied_patch = applied_patch.cuda()
 
-        with torch.no_grad():
-            output_clean = self.models[0].predict_on_batch(init_images)
-            output_clean = torch.stack(output_clean, dim=0).detach()
-            output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
-            size_output = list(output_clean.shape[:-1])
+        if model_name == "retinaface":
+            with torch.no_grad():
+                output_bbox_clean, output_class_clean, _ = self.models[0](init_images)
+                output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).to(self.device).detach()
+            output_bbox_patch, output_class_patch, _ = self.models[0](applied_patch)
+            output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2).to(self.device)
+        
+        else:
+            with torch.no_grad():
+                output_clean = self.models[0].predict_on_batch(init_images)
+                output_clean = torch.stack(output_clean, dim=0).detach()
+                output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                size_output = list(output_clean.shape[:-1])
+                size_output.append(1)
+                class_column = torch.ones(tuple(size_output)).to(self.device)
+                output_clean = torch.cat((output_clean, class_column), axis=2)
+                output_clean = output_clean.to(self.device)
+
+
+            output_patch = self.models[0].predict_on_batch(applied_patch)
+            output_patch = torch.stack(output_patch, dim=0)
+            output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+            size_output = list(output_patch.shape[:-1])
             size_output.append(1)
             class_column = torch.ones(tuple(size_output)).to(self.device)
-            output_clean = torch.cat((output_clean, class_column), axis=2)
-            output_clean = output_clean.to(self.device)
-            
-                                                      
-        output_patch = self.models[0].predict_on_batch(applied_patch)
-        output_patch = torch.stack(output_patch, dim=0)
-        output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
-        size_output = list(output_patch.shape[:-1])
-        size_output.append(1)
-        class_column = torch.ones(tuple(size_output)).to(self.device)
-        output_patch = torch.cat((output_patch, class_column), axis=2)
-        output_patch = output_patch.to(self.device)
+            output_patch = torch.cat((output_patch, class_column), axis=2)
+            output_patch = output_patch.to(self.device)
 
         max_objects_loss = self.max_objects(output_patch)
         bboxes_area_loss = self.bboxes_area(output_clean, output_patch)
-        print("bbox", bboxes_area_loss)
         iou_loss = self.iou(output_clean, output_patch)
-        print("iou", iou_loss)
 
         loss = max_objects_loss * self.lambda_1
-        print("loss", loss)
 
         if not torch.isnan(iou_loss):
             loss += (iou_loss * (1 - self.lambda_1))
@@ -519,8 +529,6 @@ class UAPPhantomSponge:
 
         self.models[0].zero_grad()
         data_grad = torch.autograd.grad(loss, adv_patch, allow_unused=True)[0]
-        print(loss)
-        print(adv_patch)
         return data_grad
 
     def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, model_name="yolo"):
@@ -537,7 +545,7 @@ class UAPPhantomSponge:
 
         else: # custom face detector
             data_grad = self.loss_function_gradient_own(applied_patch, images, labels, penalty_term,
-                                                    adv_patch)  # init_image, penalty_term, adv_patch)
+                                                    adv_patch, model_name)  # init_image, penalty_term, adv_patch)
             
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
@@ -563,7 +571,7 @@ class UAPPhantomSponge:
                 if model_name == "yolo":
                     val_loss = self.evaluate_loss(self.val_loader, adv_patch)[0]
                 else:
-                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch)[0]
+                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch, model_name)[0]
                 early_stop(val_loss, adv_patch.cpu(), epoch)
 
             # Perturb the input
