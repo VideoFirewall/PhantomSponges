@@ -20,11 +20,19 @@ def get_model(name):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     if name == 'blazeface':
         model = BlazeFace(back_model=True).to(device)
-        model.load_weights("../BlazeFace/blazefaceback.pth")
-        model.load_anchors("../BlazeFace/anchorsback.npy")
+        model.load_weights("attack/BlazeFace/blazefaceback.pth")
+        model.load_anchors("attack/BlazeFace/anchorsback.npy")
         model.min_score_thresh = 0
         model.min_suppression_threshold = 0
-    if name == 'yolov5':
+    elif name == 'retinaface':
+        from attack.Retinaface.data import cfg_re50
+        from attack.Retinaface.models.retinaface import RetinaFace 
+        
+        model = RetinaFace(cfg=cfg_re50, phase = 'test')
+        model.to(device)
+        #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
+        #model.to_device(device)
+    elif name == 'yolov5':
         # taken from https://github.com/ultralytics/yolov5
         #from attack.PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
         data = "local_yolos/yolov5_facetrain/data/dataset.yaml"
@@ -138,7 +146,7 @@ class IoU(nn.Module):
 
 class UAPPhantomSponge:
     def __init__(self, patch_folder, train_loader, val_loader, epsilon=0.1, iter_eps=0.05, penalty_regularizer=0,
-                 lambda_1=0.75, lambda_2=0, use_cuda=True, epochs=70, patch_size=[640, 640], models_vers=[5]):
+                 lambda_1=0.75, lambda_2=0, use_cuda=True, epochs=70, patch_size=[640, 640], model_name = "yolo", models_vers=[5]):
 
         self.use_cuda = use_cuda and torch.cuda.is_available()
         print("CUDA Available: ", self.use_cuda)
@@ -149,14 +157,16 @@ class UAPPhantomSponge:
 
         # load wanted models
         self.models = []
-        if 3 in models_vers:
-          self.models.append(get_model('yolov3'))
-        if 4 in models_vers:
-          self.models.append(get_model('yolov4'))
-        if 5 in models_vers:
-          self.models.append(get_model('yolov5'))
-        if 0 in models_vers:
-          self.models.append(get_model('blazeface'))
+        if len(models_vers) == 0: # non-yolo, our work
+          self.models.append(get_model(model_name))
+        else: # yolo
+            if 3 in models_vers:
+              self.models.append(get_model('yolov3'))
+            if 4 in models_vers:
+              self.models.append(get_model('yolov4'))
+            if 5 in models_vers:
+              self.models.append(get_model('yolov5'))
+        
             
 
         self.iter_eps = iter_eps
@@ -171,7 +181,7 @@ class UAPPhantomSponge:
         self.iou = IoU(conf_threshold=0.25, iou_threshold=0.45, img_size=patch_size, device=self.device)
 
         self.full_patch_folder = "uap_train/" + patch_folder + "/"
-        Path(self.full_patch_folder).mkdir(parents=True, exist_ok=False)
+        Path(self.full_patch_folder).mkdir(parents=True, exist_ok=True)
 
         self.current_dir = "experiments/" + patch_folder
         self.create_folders()
@@ -211,7 +221,10 @@ class UAPPhantomSponge:
         self.orig_classification_loss.append(self.current_orig_classification_loss)
 
         # check on validation
-        val_loss, sep_val_loss = self.evaluate_loss(self.val_loader, adv_patch)
+        if self.model_name == "yolo":
+            val_loss, sep_val_loss = self.evaluate_loss(self.val_loader, adv_patch)
+        else: # custom face detector
+            val_loss, sep_val_loss = self.evaluate_loss_own(self.val_loader, adv_patch)
         self.val_max_objects_loss.append(sep_val_loss[0])
         self.val_orig_classification_loss.append(sep_val_loss[1])
         self.val_losses.append(val_loss)
@@ -284,7 +297,7 @@ class UAPPhantomSponge:
         print(f"total loss: {loss}")
         return loss, [max_objects_loss, min_bboxes_added_preds_loss, orig_classification_loss]
 
-    # Qian: this function is created to avoid changing original code
+    # this function is created to avoid changing original code
     def evaluate_loss_own(self, loader, adv_patch):
         val_loss = []
         max_objects_loss = []
@@ -294,41 +307,23 @@ class UAPPhantomSponge:
         adv_patch = adv_patch.to(self.device)
 
         for (img_batch, lab_batch) in loader:
-            #r = random.randint(0, len(self.models) - 1)
-
             with torch.no_grad():
-                #print(img_batch.shape)
-                #print(adv_patch.shape)
-                #img_batch = torch.stack(img_batch)
                 img_batch = img_batch.to(self.device)
-                #print(img_batch.shape)
-                #print(adv_patch.shape)
-                #print(img_batch[:].shape)
                 applied_batch = img_batch[:] + adv_patch
                 applied_batch = torch.clamp(applied_batch, 0,1)
-                #print("line 254")
-                #applied_batch = torch.clamp(img_batch[:] + adv_patch, 0, 1)
                 
                 with torch.no_grad():
-                    output_clean = self.models.predict_on_batch(img_batch)
-                    #print(output_clean)
-                    #print(output_clean[0].shape)
+                    output_clean = self.models[0].predict_on_batch(img_batch)
                     output_clean = torch.stack(output_clean, dim=0)
-                    #print(output_clean[:,:,-1])
                     output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
-                    
-                    
                     
                     size_output = list(output_clean.shape[:-1])
                     size_output.append(1)
                     class_column = torch.ones(tuple(size_output)).to(self.device)
                     output_clean = torch.cat((output_clean, class_column), axis=2)
                     output_clean = output_clean.to(self.device)
-                    #print("output clean shape",output_clean.shape)
-                    #print("output clean shape 0", output_clean[0].shape)
                     
-                    
-                    output_patch = self.models.predict_on_batch(applied_batch)
+                    output_patch = self.models[0].predict_on_batch(applied_batch)
                     output_patch = torch.stack(output_patch, dim=0)
                     output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
                     size_output = list(output_patch.shape[:-1])
@@ -371,7 +366,7 @@ class UAPPhantomSponge:
     def compute_penalty_term(self, image, init_image):
         return 0
 
-    def max_objects(self, output_patch, conf_thres=0.25, target_class=2):
+    def max_objects(self, output_patch, conf_thres=0.25, target_class=0):
         x2 = output_patch[:, :, 5:] * output_patch[:, :, 4:5]
 
         conf, j = x2.max(2, keepdim=False)
@@ -473,16 +468,15 @@ class UAPPhantomSponge:
         data_grad = torch.autograd.grad(loss, adv_patch)[0]
         return data_grad
 
-    # Qian: this function is created to avoid changing original code
+    # this function is created to avoid changing original code
     def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch):
 
         if self.use_cuda:
             init_images = init_images.cuda()
             applied_patch = applied_patch.cuda()
-        # r = random.randint(0, len(self.models)-1) # choose a random model
 
         with torch.no_grad():
-            output_clean = self.models.predict_on_batch(init_images)
+            output_clean = self.models[0].predict_on_batch(init_images)
             output_clean = torch.stack(output_clean, dim=0).detach()
             output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
             size_output = list(output_clean.shape[:-1])
@@ -492,7 +486,7 @@ class UAPPhantomSponge:
             output_clean = output_clean.to(self.device)
             
                                                       
-        output_patch = self.models.predict_on_batch(applied_patch)
+        output_patch = self.models[0].predict_on_batch(applied_patch)
         output_patch = torch.stack(output_patch, dim=0)
         output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
         size_output = list(output_patch.shape[:-1])
@@ -503,9 +497,12 @@ class UAPPhantomSponge:
 
         max_objects_loss = self.max_objects(output_patch)
         bboxes_area_loss = self.bboxes_area(output_clean, output_patch)
+        print("bbox", bboxes_area_loss)
         iou_loss = self.iou(output_clean, output_patch)
+        print("iou", iou_loss)
 
         loss = max_objects_loss * self.lambda_1
+        print("loss", loss)
 
         if not torch.isnan(iou_loss):
             loss += (iou_loss * (1 - self.lambda_1))
@@ -520,13 +517,13 @@ class UAPPhantomSponge:
         if self.use_cuda:
             loss = loss.cuda()
 
-        self.models.zero_grad()
-        #print("loss", loss)
+        self.models[0].zero_grad()
         data_grad = torch.autograd.grad(loss, adv_patch, allow_unused=True)[0]
-        #print("data_grad", data_grad)
+        print(loss)
+        print(adv_patch)
         return data_grad
 
-    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, use_own_dataset=False):
+    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, model_name="yolo"):
 
         # image_attack = image
         applied_patch = torch.clamp(images[:] + adv_patch, 0, 1)
@@ -534,13 +531,14 @@ class UAPPhantomSponge:
         penalty_term = self.compute_penalty_term(images, images)  # init_image)
 
         # torch.autograd.set_detect_anomaly(True)
-        if use_own_dataset:
-            data_grad = self.loss_function_gradient_own(applied_patch, images, labels, penalty_term,
-                                                    adv_patch)  # init_image, penalty_term, adv_patch)
-        else:
+        if model_name == "yolo":
             data_grad = self.loss_function_gradient(applied_patch, images, labels, penalty_term,
                                                     adv_patch)  # init_image, penalty_term, adv_patch)
 
+        else: # custom face detector
+            data_grad = self.loss_function_gradient_own(applied_patch, images, labels, penalty_term,
+                                                    adv_patch)  # init_image, penalty_term, adv_patch)
+            
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
         # Create the perturbed image by adjusting each pixel of the input image
@@ -550,7 +548,7 @@ class UAPPhantomSponge:
         # Return the perturbed image
         return perturbed_patch_c
 
-    def pgd_L2(self, epsilon=0.1, iter_eps=0.05, min_x=0.0, max_x=1.0, use_own_dataset=False):
+    def pgd_L2(self, epsilon=0.1, iter_eps=0.05, min_x=0.0, max_x=1.0, model_name="yolo"):
         early_stop = EarlyStopping(delta=1e-8, current_dir=self.current_dir, patience=7)
 
         patch_size = self.patch_size
@@ -562,10 +560,10 @@ class UAPPhantomSponge:
             epoch_length = len(self.train_loader)
             print('Epoch:', epoch)
             if epoch == 0:
-                if use_own_dataset:
-                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch)[0]
-                else:
+                if model_name == "yolo":
                     val_loss = self.evaluate_loss(self.val_loader, adv_patch)[0]
+                else:
+                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch)[0]
                 early_stop(val_loss, adv_patch.cpu(), epoch)
 
             # Perturb the input
@@ -573,32 +571,7 @@ class UAPPhantomSponge:
             self.current_max_objects_loss = 0.0
             self.current_orig_classification_loss = 0.0
 
-            if use_own_dataset:
-                i = 0
-                for (imgs, label) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
-                    if i % 25 == 0:
-                        print(f"batch {i}:")
-                        patch_n = self.full_patch_folder + f"upatech_epoch_{epoch}_btach{i}_s_model.png"
-                        transp(adv_patch).save(patch_n)
-
-                    #x = torch.stack(imgs)
-                    x = imgs
-
-                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps, use_own_dataset=use_own_dataset)
-
-                    # Project the perturbation to the epsilon ball (L2 projection)
-                    perturbation = adv_patch - patch
-
-                    norm = torch.sum(torch.square(perturbation))
-                    norm = torch.sqrt(norm)
-                    factor = min(1, epsilon / norm.item())  # torch.divide(epsilon, norm.numpy()[0]))
-
-                    adv_patch = (torch.clip(patch + perturbation * factor, min_x, max_x))  # .detach()
-
-                    i += 1
-                    if i == epoch_length:
-                        self.last_batch_calc(adv_patch, epoch_length, epoch, i)
-            else:
+            if model_name == "yolo":
                 i = 0
                 for (imgs, label, _) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
                     if i % 25 == 0:
@@ -622,6 +595,31 @@ class UAPPhantomSponge:
                     i += 1
                     if i == epoch_length:
                         self.last_batch_calc(adv_patch, epoch_length, epoch, i)
+            else: # custom face detector
+                i = 0
+                for (imgs, label) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
+                    if i % 25 == 0:
+                        print(f"batch {i}:")
+                        patch_n = self.full_patch_folder + f"upatech_epoch_{epoch}_btach{i}_s_model.png"
+                        transp(adv_patch).save(patch_n)
+
+                    #x = torch.stack(imgs)
+                    x = imgs
+
+                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps, model_name=model_name)
+
+                    # Project the perturbation to the epsilon ball (L2 projection)
+                    perturbation = adv_patch - patch
+
+                    norm = torch.sum(torch.square(perturbation))
+                    norm = torch.sqrt(norm)
+                    factor = min(1, epsilon / norm.item())  # torch.divide(epsilon, norm.numpy()[0]))
+
+                    adv_patch = (torch.clip(patch + perturbation * factor, min_x, max_x))  # .detach()
+
+                    i += 1
+                    if i == epoch_length:
+                        self.last_batch_calc(adv_patch, epoch_length, epoch, i)
 
             # check if loss has decreased
             if early_stop(self.val_losses[-1], adv_patch.cpu(), epoch):
@@ -631,9 +629,9 @@ class UAPPhantomSponge:
         print("Training finished")
         return early_stop.best_patch
 
-    # Qian: use_own_dataset allows us to control whose dataset we are using
-    def run_attack(self, use_own_dataset=False):
-        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005, use_own_dataset=use_own_dataset)  # 05
+    # the model_name allows us to control which loss_calcalation we are using
+    def run_attack(self, model_name="yolo"):
+        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005, model_name=model_name)  # 05
 
         patch = tensor_adv_patch
 
