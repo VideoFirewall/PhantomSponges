@@ -167,7 +167,7 @@ class UAPPhantomSponge:
             if 5 in models_vers:
               self.models.append(get_model('yolov5'))
         
-            
+        self.model_name = model_name
 
         self.iter_eps = iter_eps
         self.penalty_regularizer = penalty_regularizer
@@ -298,7 +298,7 @@ class UAPPhantomSponge:
         return loss, [max_objects_loss, min_bboxes_added_preds_loss, orig_classification_loss]
 
     # this function is created to avoid changing original code
-    def evaluate_loss_own(self, loader, adv_patch, model_name):
+    def evaluate_loss_own(self, loader, adv_patch):
         val_loss = []
         max_objects_loss = []
         orig_classification_loss = []
@@ -312,7 +312,7 @@ class UAPPhantomSponge:
                 applied_batch = img_batch[:] + adv_patch
                 applied_batch = torch.clamp(applied_batch, 0,1)
                 
-                if model_name == "retinaface":
+                if self.model_name == "retinaface":
                     with torch.no_grad():
                         output_bbox_clean, output_class_clean, _ = self.models[0](img_batch)
                         output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).to(self.device)
@@ -474,13 +474,13 @@ class UAPPhantomSponge:
         return data_grad
 
     # this function is created to avoid changing original code
-    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch, model_name):
+    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch):
 
         if self.use_cuda:
             init_images = init_images.cuda()
             applied_patch = applied_patch.cuda()
 
-        if model_name == "retinaface":
+        if self.model_name == "retinaface":
             with torch.no_grad():
                 output_bbox_clean, output_class_clean, _ = self.models[0](init_images)
                 output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).to(self.device).detach()
@@ -531,7 +531,7 @@ class UAPPhantomSponge:
         data_grad = torch.autograd.grad(loss, adv_patch, allow_unused=True)[0]
         return data_grad
 
-    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, model_name="yolo"):
+    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3):
 
         # image_attack = image
         applied_patch = torch.clamp(images[:] + adv_patch, 0, 1)
@@ -539,13 +539,13 @@ class UAPPhantomSponge:
         penalty_term = self.compute_penalty_term(images, images)  # init_image)
 
         # torch.autograd.set_detect_anomaly(True)
-        if model_name == "yolo":
+        if self.model_name == "yolo":
             data_grad = self.loss_function_gradient(applied_patch, images, labels, penalty_term,
                                                     adv_patch)  # init_image, penalty_term, adv_patch)
 
         else: # custom face detector
             data_grad = self.loss_function_gradient_own(applied_patch, images, labels, penalty_term,
-                                                    adv_patch, model_name)  # init_image, penalty_term, adv_patch)
+                                                    adv_patch)  # init_image, penalty_term, adv_patch)
             
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
@@ -556,7 +556,7 @@ class UAPPhantomSponge:
         # Return the perturbed image
         return perturbed_patch_c
 
-    def pgd_L2(self, epsilon=0.1, iter_eps=0.05, min_x=0.0, max_x=1.0, model_name="yolo"):
+    def pgd_L2(self, epsilon=0.1, iter_eps=0.05, min_x=0.0, max_x=1.0):
         early_stop = EarlyStopping(delta=1e-8, current_dir=self.current_dir, patience=7)
 
         patch_size = self.patch_size
@@ -568,10 +568,10 @@ class UAPPhantomSponge:
             epoch_length = len(self.train_loader)
             print('Epoch:', epoch)
             if epoch == 0:
-                if model_name == "yolo":
+                if self.model_name == "yolo":
                     val_loss = self.evaluate_loss(self.val_loader, adv_patch)[0]
                 else:
-                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch, model_name)[0]
+                    val_loss = self.evaluate_loss_own(self.val_loader, adv_patch)[0]
                 early_stop(val_loss, adv_patch.cpu(), epoch)
 
             # Perturb the input
@@ -579,7 +579,7 @@ class UAPPhantomSponge:
             self.current_max_objects_loss = 0.0
             self.current_orig_classification_loss = 0.0
 
-            if model_name == "yolo":
+            if self.model_name == "yolo":
                 i = 0
                 for (imgs, label, _) in self.train_loader:  # for imgs, label in self.train_loader:#self.coco_train:
                     if i % 25 == 0:
@@ -614,7 +614,7 @@ class UAPPhantomSponge:
                     #x = torch.stack(imgs)
                     x = imgs
 
-                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps, model_name=model_name)
+                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps)
 
                     # Project the perturbation to the epsilon ball (L2 projection)
                     perturbation = adv_patch - patch
@@ -638,8 +638,8 @@ class UAPPhantomSponge:
         return early_stop.best_patch
 
     # the model_name allows us to control which loss_calcalation we are using
-    def run_attack(self, model_name="yolo"):
-        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005, model_name=model_name)  # 05
+    def run_attack(self):
+        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005)  # 05
 
         patch = tensor_adv_patch
 
