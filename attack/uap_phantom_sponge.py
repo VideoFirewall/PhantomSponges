@@ -315,9 +315,22 @@ class UAPPhantomSponge:
                 if self.model_name == "retinaface":
                     with torch.no_grad():
                         output_bbox_clean, output_class_clean, _ = self.models[0](img_batch)
-                        output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).to(self.device)
+                        output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2)
+                        output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device)) # 4 is ~P(face), 5 is P(face)
+                        size_output = list(output_clean.shape[:-1])
+                        size_output.append(1)
+                        class_column = torch.ones(tuple(size_output)).to(self.device)
+                        output_clean = torch.cat((output_clean, class_column), axis=2)
+                        output_clean = output_clean.to(self.device)
+
                         output_bbox_patch, output_class_patch, _ = self.models[0](applied_batch)
-                        output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2).to(self.device)
+                        output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2)
+                        output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device))
+                        size_output = list(output_patch.shape[:-1])
+                        size_output.append(1)
+                        class_column = torch.ones(tuple(size_output)).to(self.device)
+                        output_patch = torch.cat((output_patch, class_column), axis=2)
+                        output_patch = output_patch.to(self.device)
                 else:
                     with torch.no_grad():
                         output_clean = self.models[0].predict_on_batch(img_batch)
@@ -483,9 +496,22 @@ class UAPPhantomSponge:
         if self.model_name == "retinaface":
             with torch.no_grad():
                 output_bbox_clean, output_class_clean, _ = self.models[0](init_images)
-                output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).to(self.device).detach()
+                output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).detach()
+                output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device)) # 4 is ~P(face), 5 is P(face)
+                size_output = list(output_clean.shape[:-1])
+                size_output.append(1)
+                class_column = torch.ones(tuple(size_output)).to(self.device)
+                output_clean = torch.cat((output_clean, class_column), axis=2)
+                output_clean = output_clean.to(self.device)
+
             output_bbox_patch, output_class_patch, _ = self.models[0](applied_patch)
-            output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2).to(self.device)
+            output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2)
+            output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device))
+            size_output = list(output_patch.shape[:-1])
+            size_output.append(1)
+            class_column = torch.ones(tuple(size_output)).to(self.device)
+            output_patch = torch.cat((output_patch, class_column), axis=2)
+            output_patch = output_patch.to(self.device)
         
         else:
             with torch.no_grad():
