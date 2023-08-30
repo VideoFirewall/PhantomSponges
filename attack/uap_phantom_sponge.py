@@ -27,8 +27,10 @@ def get_model(name):
     elif name == 'retinaface':
         from attack.Retinaface.data import cfg_re50
         from attack.Retinaface.models.retinaface import RetinaFace 
+        from attack.Retinaface.utils.model_loader import load_model
         
         model = RetinaFace(cfg=cfg_re50, phase = 'train')
+        model = load_model(model, "attack/Retinaface/Resnet50_Final.pth")
         model.to(device)
         #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
         #model.to_device(device)
@@ -314,7 +316,7 @@ class UAPPhantomSponge:
                 
                 if self.model_name == "retinaface":
                     with torch.no_grad():
-                        output_bbox_clean, output_class_clean, _ = self.models[0](img_batch)
+                        output_bbox_clean, output_class_clean, _ = self.models[0](img_batch * 255)
                         output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2)
                         output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device)) # 4 is ~P(face), 5 is P(face)
                         size_output = list(output_clean.shape[:-1])
@@ -323,7 +325,7 @@ class UAPPhantomSponge:
                         output_clean = torch.cat((output_clean, class_column), axis=2)
                         output_clean = output_clean.to(self.device)
 
-                        output_bbox_patch, output_class_patch, _ = self.models[0](applied_batch)
+                        output_bbox_patch, output_class_patch, _ = self.models[0](applied_batch * 255)
                         output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2)
                         output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device))
                         size_output = list(output_patch.shape[:-1])
@@ -495,7 +497,7 @@ class UAPPhantomSponge:
 
         if self.model_name == "retinaface":
             with torch.no_grad():
-                output_bbox_clean, output_class_clean, _ = self.models[0](init_images)
+                output_bbox_clean, output_class_clean, _ = self.models[0](init_images * 255)
                 output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).detach()
                 output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device)) # 4 is ~P(face), 5 is P(face)
                 size_output = list(output_clean.shape[:-1])
@@ -504,7 +506,7 @@ class UAPPhantomSponge:
                 output_clean = torch.cat((output_clean, class_column), axis=2)
                 output_clean = output_clean.to(self.device)
 
-            output_bbox_patch, output_class_patch, _ = self.models[0](applied_patch)
+            output_bbox_patch, output_class_patch, _ = self.models[0](applied_patch * 255)
             output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2)
             output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device))
             size_output = list(output_patch.shape[:-1])
