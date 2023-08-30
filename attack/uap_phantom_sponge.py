@@ -30,7 +30,7 @@ def get_model(name):
         from attack.Retinaface.utils.model_loader import load_model
         
         model = RetinaFace(cfg=cfg_re50, phase = 'train')
-        model = load_model(model, "attack/Retinaface/Resnet50_Final.pth")
+        model = load_model(model, "attack/Retinaface/weights/Resnet50_Final.pth")
         model.to(device)
         #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
         #model.to_device(device)
