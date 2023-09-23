@@ -38,7 +38,7 @@ def get_model(name):
         # taken from https://github.com/ultralytics/yolov5
         #from attack.PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
         data = "local_yolos/yolov5_facetrain/data/dataset.yaml"
-        model = DetectMultiBackend("local_yolos/yolov5_facetrain/runs/train/exp/weights/best.pt", device=device, data=data, fp16=False, dnn = False)
+        model = DetectMultiBackend("attack/PhantomSponges/local_yolos/yolov5_facetrain/runs/train/exp/weights/best.pt", device=device, data=data, fp16=False, dnn = False)
         #model = attempt_load('local_yolos/yolov5/weights/yolov5s.pt', device).eval()
     elif name == 'yolov4':
         # taken from https://github.com/WongKinYiu/PyTorch_YOLOv4
