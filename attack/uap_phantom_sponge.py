@@ -448,7 +448,7 @@ class UAPPhantomSponge:
                 not_nan_count += 1
 
         if not_nan_count == 0:
-            t_loss_f = torch.tensor(torch.nan)
+            t_loss_f = torch.tensor(float('nan'))
         else:
             t_loss_f = t_loss / not_nan_count
 
