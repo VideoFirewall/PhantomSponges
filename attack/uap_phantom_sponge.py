@@ -564,7 +564,7 @@ class UAPPhantomSponge:
         self.current_train_loss += loss.item()
         self.current_max_objects_loss += (self.lambda_1 * max_objects_loss.item())
         
-        self.losses.append(epoch, batch, max_objects_loss.item(), bboxes_area_loss.item(), iou_loss.item(), loss.item())
+        self.losses.append((epoch, batch, max_objects_loss.item(), bboxes_area_loss.item(), iou_loss.item(), loss.item()))
 
         if self.use_cuda:
             loss = loss.cuda()
