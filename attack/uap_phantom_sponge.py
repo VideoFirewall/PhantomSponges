@@ -201,6 +201,9 @@ class UAPPhantomSponge:
         self.val_orig_classification_loss = []
 
         self.writer = None
+        
+        # for loss.txt file generation
+        self.losses = [] # (epoch, batch, max_object_loss, bboxes_area_loss, iou_loss, total_loss)
 
     def create_folders(self):
         Path('/'.join(self.current_dir.split('/')[:2])).mkdir(parents=True, exist_ok=True)
@@ -248,6 +251,11 @@ class UAPPhantomSponge:
             pickle.dump(self.max_objects_loss, fp)
         with open(self.current_dir + '/losses/orig_classification_losses', 'wb') as fp:
             pickle.dump(self.orig_classification_loss, fp)
+        with open(self.current_dir + '/losses/losses.txt', 'w') as fp:
+            # write down self.losses row by row, with title "epoch, batch, max_object_loss, bboxes_area_loss, iou_loss, total_loss"
+            fp.write("epoch, batch, max_object_loss, bboxes_area_loss, iou_loss, total_loss\n")
+            for loss in self.losses:
+                fp.write(f"{loss[0]}, {loss[1]}, {loss[2]}, {loss[3]}, {loss[4]}, {loss[5]}\n")
 
     def evaluate_loss(self, loader, adv_patch):
         val_loss = []
@@ -489,7 +497,7 @@ class UAPPhantomSponge:
         return data_grad
 
     # this function is created to avoid changing original code
-    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch):
+    def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch, epoch=0, batch=0):
 
         if self.use_cuda:
             init_images = init_images.cuda()
@@ -545,12 +553,18 @@ class UAPPhantomSponge:
         if not torch.isnan(iou_loss):
             loss += (iou_loss * (1 - self.lambda_1))
             self.current_orig_classification_loss += ((1 - self.lambda_1) * iou_loss.item())
+        else:
+            iou_loss = torch.tensor(0)
 
         if not torch.isnan(bboxes_area_loss):
             loss += (bboxes_area_loss * self.lambda_2)
+        else:
+            bboxes_area_loss = torch.tensor(0)
 
         self.current_train_loss += loss.item()
         self.current_max_objects_loss += (self.lambda_1 * max_objects_loss.item())
+        
+        self.losses.append(epoch, batch, max_objects_loss.item(), bboxes_area_loss.item(), iou_loss.item(), loss.item())
 
         if self.use_cuda:
             loss = loss.cuda()
@@ -559,7 +573,7 @@ class UAPPhantomSponge:
         data_grad = torch.autograd.grad(loss, adv_patch, allow_unused=True)[0]
         return data_grad
 
-    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3):
+    def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, epoch=0, batch=0):
 
         # image_attack = image
         applied_patch = torch.clamp(images[:] + adv_patch, 0, 1)
@@ -573,7 +587,7 @@ class UAPPhantomSponge:
 
         else: # custom face detector
             data_grad = self.loss_function_gradient_own(applied_patch, images, labels, penalty_term,
-                                                    adv_patch)  # init_image, penalty_term, adv_patch)
+                                                    adv_patch, epoch=epoch, batch=batch)  # init_image, penalty_term, adv_patch)
             
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
@@ -642,7 +656,7 @@ class UAPPhantomSponge:
                     #x = torch.stack(imgs)
                     x = imgs
 
-                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps)
+                    adv_patch = self.fastGradientSignMethod(adv_patch, x, label, epsilon=iter_eps, epoch=epoch, batch=i)
 
                     # Project the perturbation to the epsilon ball (L2 projection)
                     perturbation = adv_patch - patch
