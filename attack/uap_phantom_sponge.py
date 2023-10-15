@@ -34,6 +34,14 @@ def get_model(name):
         model.to(device)
         #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
         #model.to_device(device)
+    elif name == 'retinaface_mobile':
+        from attack.Retinaface.data import cfg_mnet
+        from attack.Retinaface.models.retinaface import RetinaFace 
+        from attack.Retinaface.utils.model_loader import load_model
+        
+        model = RetinaFace(cfg=cfg_mnet, phase = 'train')
+        model = load_model(model, "attack/Retinaface/weights/mobilenet0.25_Final.pth")
+        model.to(device)
     elif name == 'yolov5':
         # taken from https://github.com/ultralytics/yolov5
         #from attack.PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
@@ -322,7 +330,7 @@ class UAPPhantomSponge:
                 applied_batch = img_batch[:] + adv_patch
                 applied_batch = torch.clamp(applied_batch, 0,1)
                 
-                if self.model_name == "retinaface":
+                if "retinaface" in self.model_name:
                     with torch.no_grad():
                         output_bbox_clean, output_class_clean, _ = self.models[0](img_batch * 255)
                         output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2)
@@ -503,7 +511,7 @@ class UAPPhantomSponge:
             init_images = init_images.cuda()
             applied_patch = applied_patch.cuda()
 
-        if self.model_name == "retinaface":
+        if "retinaface" in self.model_name:
             with torch.no_grad():
                 output_bbox_clean, output_class_clean, _ = self.models[0](init_images * 255)
                 output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).detach()
