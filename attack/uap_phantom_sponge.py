@@ -2,16 +2,22 @@
 import pickle
 import random
 from pathlib import Path
+import cv2
+import os
+import csv
 import torch
 import numpy as np
 import torchvision
 from torchvision import transforms
 import torch.nn as nn
+import torch.nn.functional as F
 from attack.BlazeFace.blazeface import BlazeFace
 
-from attack.PhantomSponges.local_yolos.yolov5.utils.general import non_max_suppression, xyxy2xywh
+from attack.PhantomSponges.local_yolos.yolov5.utils.general import non_max_suppression, xyxy2xywh, xywh2xyxy
 from attack.PhantomSponges.attacks_tools.early_stopping_patch import EarlyStopping
 from attack.PhantomSponges.local_yolos.yolov5_facetrain.models.common import DetectMultiBackend
+from attack.Retinaface.layers.functions.prior_box import PriorBox
+from attack.Retinaface.utils.box_utils import decode
 
 transt = transforms.ToTensor()
 transp = transforms.ToPILImage()
@@ -31,7 +37,7 @@ def get_model(name):
         
         model = RetinaFace(cfg=cfg_re50, phase = 'train')
         model = load_model(model, "attack/Retinaface/weights/Resnet50_Final.pth")
-        model.to(device)
+        model.to(device).eval()
         #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
         #model.to_device(device)
     elif name == 'retinaface_mobile':
@@ -333,6 +339,19 @@ class UAPPhantomSponge:
                 if "retinaface" in self.model_name:
                     with torch.no_grad():
                         output_bbox_clean, output_class_clean, _ = self.models[0](img_batch * 255)
+                        # modify bbox
+                        for i in range(len(output_bbox_clean)):
+                            priorbox = PriorBox(self.models[0].cfg, image_size=(256, 256))
+                            priors = priorbox.forward()
+                            priors = priors.to(self.device)
+                            prior_data = priors.data
+                            output_bbox_clean[i] = decode(output_bbox_clean[i], prior_data, self.models[0].cfg['variance'])
+                            output_bbox_clean[i] = xyxy2xywh(output_bbox_clean[i]) * self.patch_size[0]
+
+                        #modify score
+                        output_class_clean = F.softmax(output_class_clean, dim=-1)
+                        # output_class_clean = output_class_clean.detach() + 0.25 - 0.1
+                        
                         output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2)
                         output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device)) # 4 is ~P(face), 5 is P(face)
                         size_output = list(output_clean.shape[:-1])
@@ -342,6 +361,20 @@ class UAPPhantomSponge:
                         output_clean = output_clean.to(self.device)
 
                         output_bbox_patch, output_class_patch, _ = self.models[0](applied_batch * 255)
+
+                        # modify bbox
+                        for i in range(len(output_bbox_patch)):
+                            priorbox = PriorBox(self.models[0].cfg, image_size=(256, 256))
+                            priors = priorbox.forward()
+                            priors = priors.to(self.device)
+                            prior_data = priors.data
+                            output_bbox_patch[i] = decode(output_bbox_patch[i], prior_data, self.models[0].cfg['variance'])
+                            output_bbox_patch[i] = xyxy2xywh(output_bbox_patch[i]) * self.patch_size[0]
+                        
+                        #modify score
+                        output_class_patch = F.softmax(output_class_patch, dim=-1)
+                        # output_class_patch = output_class_patch.detach() + 0.25 - 0.1
+
                         output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2)
                         output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device))
                         size_output = list(output_patch.shape[:-1])
@@ -354,6 +387,7 @@ class UAPPhantomSponge:
                         output_clean = self.models[0].predict_on_batch(img_batch)
                         output_clean = torch.stack(output_clean, dim=0)
                         output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                        output_clean[:4] = output_clean[:4] * self.patch_size[0]
                         size_output = list(output_clean.shape[:-1])
                         size_output.append(1)
                         class_column = torch.ones(tuple(size_output)).to(self.device)
@@ -363,11 +397,12 @@ class UAPPhantomSponge:
                         output_patch = self.models[0].predict_on_batch(applied_batch)
                         output_patch = torch.stack(output_patch, dim=0)
                         output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                        output_patch[:4] = output_patch[:4] * self.patch_size[0]
                         size_output = list(output_patch.shape[:-1])
                         size_output.append(1)
                         class_column = torch.ones(tuple(size_output)).to(self.device)
                         output_patch = torch.cat((output_patch, class_column), axis=2)
-                        output_patch = output_patch.to(self.device)                                                      
+                        output_patch = output_patch.to(self.device)   
 
                 max_objects = self.max_objects(output_patch, target_class=0)
 
@@ -444,7 +479,6 @@ class UAPPhantomSponge:
 
             # Box (center x, center y, width, height) to (x1, y1, x2, y2)
             box_x1 = xywh2xyxy(x1[:, :4])
-
             min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
             agnostic = True
 
@@ -506,7 +540,6 @@ class UAPPhantomSponge:
 
     # this function is created to avoid changing original code
     def loss_function_gradient_own(self, applied_patch, init_images, batch_label, penalty_term, adv_patch, epoch=0, batch=0):
-
         if self.use_cuda:
             init_images = init_images.cuda()
             applied_patch = applied_patch.cuda()
@@ -514,6 +547,19 @@ class UAPPhantomSponge:
         if "retinaface" in self.model_name:
             with torch.no_grad():
                 output_bbox_clean, output_class_clean, _ = self.models[0](init_images * 255)
+                
+                # modify bbox
+                for i in range(len(output_bbox_clean)):
+                    priorbox = PriorBox(self.models[0].cfg, image_size=(256, 256))
+                    priors = priorbox.forward()
+                    priors = priors.to(self.device)
+                    prior_data = priors.data
+                    output_bbox_clean[i] = decode(output_bbox_clean[i], prior_data, self.models[0].cfg['variance'])
+                    output_bbox_clean[i] = xyxy2xywh(output_bbox_clean[i]) * self.patch_size[0]
+
+                #modify score
+                output_class_clean = F.softmax(output_class_clean, dim=-1)
+
                 output_clean = torch.cat((output_bbox_clean, output_class_clean), axis=2).detach()
                 output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device)) # 4 is ~P(face), 5 is P(face)
                 size_output = list(output_clean.shape[:-1])
@@ -523,6 +569,20 @@ class UAPPhantomSponge:
                 output_clean = output_clean.to(self.device)
 
             output_bbox_patch, output_class_patch, _ = self.models[0](applied_patch * 255)
+            
+            # modify bbox
+            for i in range(len(output_bbox_patch)):
+                priorbox = PriorBox(self.models[0].cfg, image_size=(256, 256))
+                priors = priorbox.forward()
+                priors = priors.to(self.device)
+                prior_data = priors.data
+                output_bbox_patch[i] = decode(output_bbox_patch[i], prior_data, self.models[0].cfg['variance'])
+                output_bbox_patch[i] = xyxy2xywh(output_bbox_patch[i]) * self.patch_size[0]
+
+            #modify score
+            output_class_patch = F.softmax(output_class_patch, dim=-1)
+            # output_class_patch = output_class_patch.detach() + 0.25 - 0.1
+            
             output_patch = torch.cat((output_bbox_patch, output_class_patch), axis=2)
             output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 5]).to(self.device))
             size_output = list(output_patch.shape[:-1])
@@ -536,6 +596,7 @@ class UAPPhantomSponge:
                 output_clean = self.models[0].predict_on_batch(init_images)
                 output_clean = torch.stack(output_clean, dim=0).detach()
                 output_clean = torch.index_select(output_clean, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+                output_clean[:4] = output_clean[:4] * self.patch_size[0]
                 size_output = list(output_clean.shape[:-1])
                 size_output.append(1)
                 class_column = torch.ones(tuple(size_output)).to(self.device)
@@ -546,6 +607,7 @@ class UAPPhantomSponge:
             output_patch = self.models[0].predict_on_batch(applied_patch)
             output_patch = torch.stack(output_patch, dim=0)
             output_patch = torch.index_select(output_patch, 2, torch.tensor([0, 1, 2, 3, 16]).to(self.device))
+            output_patch[:4] = output_patch[:4] * self.patch_size[0]
             size_output = list(output_patch.shape[:-1])
             size_output.append(1)
             class_column = torch.ones(tuple(size_output)).to(self.device)
@@ -578,7 +640,7 @@ class UAPPhantomSponge:
             loss = loss.cuda()
 
         self.models[0].zero_grad()
-        data_grad = torch.autograd.grad(loss, adv_patch, allow_unused=True)[0]
+        data_grad = torch.autograd.grad(loss, adv_patch)[0]
         return data_grad
 
     def fastGradientSignMethod(self, adv_patch, images, labels, epsilon=0.3, epoch=0, batch=0):
@@ -683,13 +745,12 @@ class UAPPhantomSponge:
             if early_stop(self.val_losses[-1], adv_patch.cpu(), epoch):
                 self.final_epoch_count = epoch
                 break
-
         print("Training finished")
         return early_stop.best_patch
 
     # the model_name allows us to control which loss_calcalation we are using
-    def run_attack(self):
-        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=0.0005)  # 05
+    def run_attack(self, iter_eps=0.0005):
+        tensor_adv_patch = self.pgd_L2(epsilon=self.epsilon, iter_eps=iter_eps)  # 05
 
         patch = tensor_adv_patch
 
