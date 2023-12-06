@@ -38,8 +38,6 @@ def get_model(name):
         model = RetinaFace(cfg=cfg_re50, phase = 'train')
         model = load_model(model, "attack/Retinaface/weights/Resnet50_Final.pth")
         model.to(device).eval()
-        #model = load_model(net, 'attack/Retinaface/weights/Resnet50_Final.pth', not torch.cuda.is_available())
-        #model.to_device(device)
     elif name == 'retinaface_mobile':
         from attack.Retinaface.data import cfg_mnet
         from attack.Retinaface.models.retinaface import RetinaFace 
@@ -47,7 +45,7 @@ def get_model(name):
         
         model = RetinaFace(cfg=cfg_mnet, phase = 'train')
         model = load_model(model, "attack/Retinaface/weights/mobilenet0.25_Final.pth")
-        model.to(device)
+        model.to(device).eval()
     elif name == 'yolov5':
         # taken from https://github.com/ultralytics/yolov5
         #from attack.PhantomSponges.local_yolos.yolov5.models.experimental import attempt_load
